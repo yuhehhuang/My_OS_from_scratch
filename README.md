@@ -1,3 +1,5 @@
+學習一個OS能運作的最基本功能
+
 1.底層系統與開機流程：使用 C 語言與 RISC-V 組合語言，在 QEMU 模擬器環境下從零構建作業系統核心，實作啟動引導（Bootstrapping）、異常與中斷處理（Trap/Exception Handling）。
 
 2.虛擬記憶體與特權隔離：實作 Sv32 Page Table，透過 CPU 特權等級切換（S-Mode / U-Mode）與硬體 MMU 權限位元實現使用者空間（User Space）隔離與保護。
