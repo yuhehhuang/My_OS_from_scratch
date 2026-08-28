@@ -1,9 +1,12 @@
+
+/*告訴連結器把 boot 這個標籤寫入 ELF 檔頭，作為 CPU 開機後要執行的第一條指令。*/
 ENTRY(boot)
 
 SECTIONS {
     . = 0x80200000;
+    __kernel_base = .;
 
-   .text :{
+    .text :{
         KEEP(*(.text.boot));
         *(.text .text.*);
     }
@@ -21,12 +24,13 @@ SECTIONS {
         *(.bss .bss.* .sbss .sbss.*);
         __bss_end = .;
     }
-    . = ALIGN(4096);  /*頁對齊(4KB) */
-    __free_ram = .;
-    . += 64 * 1024 * 1024; /* 64MB */
-    __free_ram_end = .;
 
     . = ALIGN(4);
     . += 128 * 1024; /* 128KB */
     __stack_top = .;
+
+    . = ALIGN(4096);
+    __free_ram = .;
+    . += 64 * 1024 * 1024; /* 64MB */
+    __free_ram_end = .;
 }
