@@ -11,10 +11,6 @@ extern char __bss[], __bss_end[], __stack_top[], __free_ram[], __free_ram_end[],
 extern char _binary_shell_bin_start[], _binary_shell_bin_size[];
 struct file files[FILES_MAX]; // hello.txt & meow.txt
 uint8_t disk[DISK_MAX_SIZE];
-/// 實體地址由32bits決定，一個位編號地址以存放1bytes ==>記憶體空間 2^32次方bytes  = 4GB;
-// OS把4KB當作一個page,所以需要一個12bits (offeset) 來取一個page內的某個位址;
-// 總共有2^20個page，所以用20個bits決定which page,所以剛好20+12個bits等於一個bytes的變數就能控制所有記憶體位址
-// 我們把前20bits分成兩階段10+10bits當作vpn[1],vpn[0]當作兩個table的index去找到對應的時體位址
 
 //
 void virtio_blk_init(void)
@@ -120,6 +116,11 @@ void read_write_disk(void *buf, unsigned sector, int is_write)
     if (!is_write)
         memcpy(buf, blk_req->data, SECTOR_SIZE);
 }
+
+/// 實體地址由32bits決定，一個位編號地址以存放1bytes ==>記憶體空間 2^32次方bytes  = 4GB;
+// OS把4KB當作一個page,所以需要一個12bits (offeset) 來取一個page內的某個位址;
+// 總共有2^20個page，所以用20個bits決定which page,所以剛好20+12個bits等於一個bytes的變數就能控制所有記憶體位址
+// 我們把前20bits分成兩階段10+10bits當作vpn[1],vpn[0]當作兩個table的index去找到對應的時體位址
 void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags)
 {
     if (!is_aligned(vaddr, PAGE_SIZE))
@@ -215,6 +216,8 @@ struct process *create_process(const void *image, size_t image_size)
     }
     // 若沒建立table，無法讓虛擬地址順利解碼成實體位址(page fault)==>無法控制外設
     map_page(page_table, VIRTIO_BLK_PADDR, VIRTIO_BLK_PADDR, PAGE_R | PAGE_W);
+
+    // 將應用程式的二進位映像檔（如 shell.bin），以分頁（Page）為單位完整載入到該行程的虛擬位址空間中。
     for (uint32_t off = 0; off < image_size; off += PAGE_SIZE)
     {
         // 以block size為單位copy資料
@@ -231,7 +234,7 @@ struct process *create_process(const void *image, size_t image_size)
 
     proc->pid = i + 1;
     proc->state = PROC_RUNNABLE;
-    proc->sp = (uint32_t)sp;
+    proc->sp = (uint32_t)sp; // 指向 kernel stack 頂端 (該位置存有 ra = user_entry)
     proc->page_table = page_table;
     return proc;
 };
@@ -361,6 +364,10 @@ long getchar(void)
     struct sbiret ret = sbi_call(0, 0, 0, 0, 0, 0, 0, 2);
     return ret.error;
 }
+
+// 透過將 sstatus 的第 8 位元（SPP, Supervisor Previous Privilege）設為 0，
+// 當執行 sret 指令返回時，CPU 會切換至 U-Mode（User Mode），
+// 讓後續的 shell.c 在受限制的使用者模式下執行。
 __attribute__((naked)) void user_entry(void)
 {
     __asm__ __volatile__(
